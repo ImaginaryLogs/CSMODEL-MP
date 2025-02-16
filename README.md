@@ -58,20 +58,6 @@ The dataset has 14 variables, and it has the following variables in no particula
 
 The variables related to sales were preprocessed relative to the millions, so the values are expected not to be completely raw. In addition to this, the sales included in the dataset have regional breakdowns; this consists of North American, European and African, Japanese, and other unspecified region sales. The platforms where the games are released are explicitly separated from each other; metrics of the same game released on different platforms will have different results per platform.
 
-## Exploratory Data Analysis
-
-1. Game Franchise / Series
-    * Feature engineering is required to consolidate games under a similar series/name
-2. Location and Platform/Console* (by platform/console)
-    * Platform is viable but requires more cleaning with the various amount of consoles/devices available
-        * Some consoles mentioned are operating systems
-    * Location is difficult as it uses a different metric to compare influence/performance
-        * Regions are heavily consolidated
-3. Developer and Publisher*
-4. Genre
-5. Release Date
-    * Feature engineering to sort it by the four seasons (winter, summer, autumn, spring) (maybe games perform better if released in certain seasons)
-  
 ## Research Questions
 
 “What factors have the greatest influence on Video Game Sales?”
@@ -89,6 +75,19 @@ The variables related to sales were preprocessed relative to the millions, so th
 5. *Color Analysis vs Global Sales
 6. Critic Score vs Global Sales
 7. Critic Score/Sales vs Release Date
+
+1. Game Franchise / Series
+    * Feature engineering is required to consolidate games under a similar series/name
+2. Location and Platform/Console* (by platform/console)
+    * Platform is viable but requires more cleaning with the various amount of consoles/devices available
+        * Some consoles mentioned are operating systems
+    * Location is difficult as it uses a different metric to compare influence/performance
+        * Regions are heavily consolidated
+3. Developer and Publisher*
+4. Genre
+5. Release Date
+    * Feature engineering to sort it by the four seasons (winter, summer, autumn, spring) (maybe games perform better if released in certain seasons)
+  
 
 # Research Questions
 
