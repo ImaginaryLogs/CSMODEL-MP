@@ -118,9 +118,15 @@ Image processing - Web Scrapping
 media_path = 'media'
 URL = "https://www.vgchartz.com"
 URL_GAME_ART_LOCATION = '/games/boxart/'
-PREF_IMG_SIZE = (512, 512)
-BIN_SIZE = 32
-HSV_SIZE = 36
+PREF_IMG_SIZE = (128, 128)
+GEN_BSIZE = 12
+HUE_BSIZE = 12 # Fixed, do not touch
+
+DOWNLOAD_ALL = False
+DOWNLOAD_LIMIT = 50
+
+def select_images():
+  return vgdf if DOWNLOAD_ALL else vgdf.head(DOWNLOAD_LIMIT)
 
 def image_location(img_path_partial: str) -> tuple[str, str, str]:
   file_name = img_path_partial.replace(URL_GAME_ART_LOCATION, '')
@@ -128,7 +134,6 @@ def image_location(img_path_partial: str) -> tuple[str, str, str]:
   img_png = img_jpg.replace('.jpg', '.png')
   
   return (file_name, img_jpg, img_png)
-
 
 def image_webscrape(img_path_partial: str) -> str|None:
   """Retrieves the corresponding image from the video game database https://www.vgchartz.com.
@@ -159,35 +164,16 @@ def image_webscrape(img_path_partial: str) -> str|None:
     return img_png
     
   os.remove(img_jpg)
-    
-vgdf['img_png_path'] = vgdf['img_link'].head(50).apply(image_webscrape)
-    
 
+vgdf['img_png_path'] = select_images()['img_link'].apply(image_webscrape)
+
+    
 """
 Image processing - Data Cleaning
 """
-calc_hist = lambda image, channel, ranges : cv2.calcHist([image], [channel], None, [BIN_SIZE], ranges) 
-normalize = lambda x: cv2.normalize(x, x, norm_type=cv2.NORM_L1).flatten()
 
-def rgb_color_extract(img_path):
-  image = cv2.imread(img_path, cv2.IMREAD_COLOR)
-  
-  if image is None:
-      return None
-  
-  # Resize the image to small yet reasonable size
-  image = cv2.resize(image, PREF_IMG_SIZE)
-  
-  
-  r_hist = calc_hist(image, 2, [0, 256])
-  g_hist = calc_hist(image, 1, [0, 256])
-  b_hist = calc_hist(image, 0, [0, 256])
-  
-  r_hist = normalize(r_hist)
-  g_hist = normalize(g_hist)
-  b_hist = normalize(b_hist)
-  
-  return [r_hist, g_hist, b_hist]
+calc_hist = lambda image, channel, ranges : cv2.calcHist([image], [channel], None, [GEN_BSIZE], ranges) 
+normalize = lambda x: cv2.normalize(x, x, norm_type=cv2.NORM_L1).flatten()
 
 def hsv_preprocess_extract(img_path):
   image = cv2.imread(img_path, cv2.IMREAD_COLOR)
@@ -200,83 +186,120 @@ def hsv_preprocess_extract(img_path):
   image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     
   # Data Cleaning with a Filter
-  mask = image[:, :, 2] > 30
+  # 0 - hue, 1 - sat, 2 - val
+  mask = image[:, :, 1] & image[:, :, 2] > 30 
   return image, mask
 
-def hue_extract(img_path: str):
+def get_hist_hue(img_path: str):
   img, mask = hsv_preprocess_extract(img_path)
-  
   if img is None:
+    print(f"[ERROR]: No Image Located {img_path}")
     return None
   
-  hue_hist = (normalize(cv2.calcHist([img], [0], mask.astype(np.uint8), [HSV_SIZE], [0, 180])))
+  hue_hist = normalize(cv2.calcHist([img], [0], mask.astype(np.uint8), [HUE_BSIZE], [0, 180]))
   return hue_hist
 
-def saturation_extract(img_path: str):
+def get_hist_sat(img_path: str):
   img, mask = hsv_preprocess_extract(img_path)
   
   if img is None:
     return None
   
-  sat_hist = (normalize(cv2.calcHist([img], [1], mask.astype(np.uint8), [BIN_SIZE], [0, 256])))
+  sat_hist = (normalize(cv2.calcHist([img], [1], mask.astype(np.uint8), [GEN_BSIZE], [0, 256])))
   return sat_hist
 
-def value_extract(img_path: str):
+def get_hist_val(img_path: str):
   img, mask = hsv_preprocess_extract(img_path)
   
   if img is None:
     return None
   
-  val_hist = (normalize(cv2.calcHist([img], [2], mask.astype(np.uint8), [BIN_SIZE], [0, 256])))
+  val_hist = (normalize(cv2.calcHist([img], [2], mask.astype(np.uint8), [GEN_BSIZE], [0, 256])))
   return val_hist
 
+apply_all           = lambda apply, h, s, v : (apply(h), apply(s), apply(v))
+channel_extraction  = lambda channelfunc : select_images()["img_png_path"].apply(lambda x: channelfunc(x))
+channel_mean        = lambda name : select_images()[name].mean()
+
+vgdf["hist_hue"], vgdf["hist_sat"], vgdf["hist_val"] = apply_all(channel_extraction, get_hist_hue, get_hist_sat, get_hist_val)
+
+def plot_hsv_hist():
+  h, s, v = apply_all(channel_mean, 'hist_hue', 'hist_sat', 'hist_val')
+  fig, axes = plt.subplots(3, 1, figsize=(16, 8))
+
+  adjusted_pos = lambda cap, bin_step_size : (
+    np.linspace(0, cap, bin_step_size, endpoint=False) + (cap / bin_step_size) / 2
+  )
+
+  hue_x_pos = adjusted_pos(180, HUE_BSIZE)
+  sat_x_pos = adjusted_pos(256, GEN_BSIZE)
+  val_x_pos = adjusted_pos(256, GEN_BSIZE)
+
+  hue_colors = np.array(
+    [[[h, 255, 255]] for h in hue_x_pos.astype(np.uint8)],  # approximate linspace float to int
+    dtype=np.uint8                                          # As an integer type
+  )
+
+  hue_colors = (
+    cv2.cvtColor(hue_colors, cv2.COLOR_HSV2RGB)             # To RGB
+    .reshape(-1, 3) / 255                                   # Flatten down to three (n, 3)
+  )
+
+  def hist_custom(ax, name, top_limit=256):
+    ax.set_title(name)
+    ax.set_xlim([0, top_limit])
+    ax.set_xticks(np.linspace(0, top_limit, 10, dtype=int))
   
+  axes[0].bar (hue_x_pos, h, color=hue_colors, width=180/HUE_BSIZE)
+  hist_custom(axes[0], "Hue", top_limit=180)
+  axes[1].plot(sat_x_pos, s, color='green')
+  hist_custom(axes[1], "Saturation")
+  axes[2].plot(val_x_pos, v, color='black')
+  hist_custom(axes[2], "Value")
 
-def hist_custom(ax, pos_x, hist_y, name, color, top_limit=256):
-  ax.plot(pos_x, hist_y, color=color)
-  ax.set_title(name)
-  ax.set_xlim([0, top_limit])
-  ax.set_xticks(np.linspace(0, top_limit, 10, dtype=int))
+  plt.show()
 
-vgdf["hue"] = vgdf.head(50)["img_png_path"].apply(lambda x: hue_extract(x))
-vgdf["saturation"] = vgdf.head(50)["img_png_path"].apply(lambda x: saturation_extract(x))
-vgdf["value"] = vgdf.head(50)["img_png_path"].apply(lambda x: value_extract(x))
+plot_hsv_hist()
 
-selected_image = vgdf.loc[1]
-image = cv2.imread(selected_image["img_png_path"], cv2.IMREAD_COLOR)
-image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+def get_hist_hue(img_path: str):
+  img, mask = hsv_preprocess_extract(img_path)
+  
+  if img is None:
+    return None
+  
+  hue_hist = (normalize(cv2.calcHist([img], [0], mask.astype(np.uint8), [HUE_BSIZE], [0, 180])))
+  return hue_hist
 
-get_hsv = lambda name : (vgdf.head(50)[name].mean())
+hue_categories = {
+  "has_pal_warm"            : [0, 1, 2],
+  "has_pal_forest_neutral"  : [3, 4, 5],
+  "has_pal_cool"            : [6, 7, 8],
+  "has_pal_pastel_neutral"  : [9, 10, 11]
+}
 
-h, s, v = get_hsv('hue'), get_hsv('saturation'), get_hsv('value')
-print(h.sum())
+HUE_CLASSIFICATION_THRESHOLD = 0.20
 
-fig, axes = plt.subplots(3, 1, figsize=(16, 8))
+def categorize_hue(hue_history):
+  one_hot = {hue_key: np.uint8(0) for hue_key in hue_categories.keys()}
+  print(f"hue_hist: {hue_history}")
+  for (hue_group, bin_number) in hue_categories.items():
+    if np.sum(hue_history[bin_number]) > HUE_CLASSIFICATION_THRESHOLD:
+      one_hot[hue_group] = np.uint8(1)
+  
+  return one_hot
 
-adjusted_pos = lambda cap, bin_step_size : (
-  np.linspace(0, cap, bin_step_size, endpoint=False) + (cap / bin_step_size) / 2
-)
+vgdf["hist_hue"].dropna()
 
-hue_x_pos = adjusted_pos(180, HSV_SIZE)
-sat_x_pos = adjusted_pos(256, BIN_SIZE)
-val_x_pos = adjusted_pos(256, BIN_SIZE)
+vgdf["color_categories"] = select_images()["hist_hue"].apply(categorize_hue)
 
-hue_colors = np.array(
-  [[[h, 255, 255]] for h in hue_x_pos.astype(np.uint8)],  # approximate linspace float to int
-  dtype=np.uint8                                          # As an integer type
-)
 
-hue_colors = (
-  cv2.cvtColor(hue_colors, cv2.COLOR_HSV2RGB)             # To RGB
-  .reshape(-1, 3) / 255                                   # Flatten down to three (n, 3)
-)
+# Expand into one-hot encoded columns
+color_df = select_images()["color_categories"].apply(pd.Series, dtype=np.uint8)
+vgdf = pd.concat([vgdf, color_df], axis=1).drop(columns=["color_categories"])
 
-axes[0].bar(hue_x_pos, h, color=hue_colors, width=180/HSV_SIZE)
-axes[0].set_title("Hue Histogram")
-axes[0].set_xlim([0, 180])
-axes[0].set_xticks(np.linspace(0, 180, 10, dtype=int))
+print(vgdf.info())
 
-hist_custom(axes[1], sat_x_pos, s, "Saturation", 'green')
-hist_custom(axes[2], val_x_pos, v, "Value", 'black')
-
-plt.show()
+print(vgdf["has_pal_warm"].value_counts())
+print(vgdf["has_pal_forest_neutral"].value_counts())
+print(vgdf["has_pal_cool"].value_counts())
+print(vgdf["has_pal_pastel_neutral"].value_counts())
