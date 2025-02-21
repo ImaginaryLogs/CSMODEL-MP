@@ -54,31 +54,6 @@ title_dict = {
   'last_update'   : 'Last Update'
 }
 
-"""
-Genre - Exploratory Data Analysis
-"""
-vgdf_unique_titles =  vgdf.groupby(by=['title', 'genre'], observed=True).agg({
-    'total_sales':'sum',
-    'na_sales':'sum',
-    'jp_sales':'sum',
-    'pal_sales':'sum',
-    'other_sales':'sum',
-    'release_date':'min',
-    'last_update':'min'
-  }).sort_values('total_sales', ascending=False)
-print(vgdf_unique_titles)
-
-# The top 3 most profitable unique titles
-genre_count = vgdf_unique_titles[["total_sales"]]\
-  .agg({'total_sales':'sum'})\
-  .sort_values()
-print(genre_count)
-
-
-# The most profitable genre:
-genre_sales = vgdf.groupby("genre", observed=True)["total_sales"].sum().reset_index().sort_values(by='total_sales', ascending=False)
-print("Most profitable genre:")
-print(genre_sales)
 
 DEFAULT_SIZE = (10, 5)
 
@@ -98,17 +73,6 @@ def plot_groupby(df: pd.DataFrame, category_x: str, count_y: str, hue_z: str):
   plt.show()
 
 # plot_groupby(genre_sales, 'genre', 'total_sales', 'genre')
-
-# The Top 3 Best Unique Videogames per Genre Category
-genre_popular = vgdf_unique_titles.sort_values("total_sales")
-genre_popular = genre_popular.groupby(['genre'], observed=True)\
-  ['total_sales'].nlargest(3)
-  
-  
-# Release Date timeline -> Genre
-# Sonic                 ->
-# Shooters              ->
-
 
 """
 Image processing - Web Scrapping
@@ -133,7 +97,7 @@ def image_location(img_path_partial: str) -> tuple[str, str, str]:
   
   return (file_name, img_jpg, img_png)
 
-def image_webscrape(img_path_partial: str) -> str|None:
+def image_webscrape(img_path_partial: str) -> str | None:
   """Retrieves the corresponding image from the video game database https://www.vgchartz.com.
 
   Args:
@@ -172,7 +136,10 @@ Image processing - Data Cleaning
 calc_hist = lambda image, channel, ranges : cv2.calcHist([image], [channel], None, [GEN_BSIZE], ranges) 
 normalize = lambda x: cv2.normalize(x, x, norm_type=cv2.NORM_L1).flatten()
 
-def hsv_preprocess_extract(img_path):
+SAT_MASK = 50
+VAL_MASK = 30
+
+def image_preprocessing(img_path):
   image = cv2.imread(img_path, cv2.IMREAD_COLOR)
   
   if image is None:
@@ -184,11 +151,15 @@ def hsv_preprocess_extract(img_path):
     
   # Data Cleaning with a Filter
   # 0 - hue, 1 - sat, 2 - val
-  mask = image[:, :, 1] & image[:, :, 2] > 30 
+  # # Removes the following:
+  #  - Unsaturated Grayish Colors
+  #  - Very Close to Black Values
+  #  - Very Close to White Values
+  mask = (image[:, :, 1] > SAT_MASK) & (image[:, :, 2] > VAL_MASK) & (image[:, :, 2] < (255 - VAL_MASK))
   return image, mask
 
 def get_hist_hue(img_path: str):
-  img, mask = hsv_preprocess_extract(img_path)
+  img, mask = image_preprocessing(img_path)
   if img is None:
     print(f"[ERROR]: No Image Located {img_path}")
     return None
@@ -197,7 +168,7 @@ def get_hist_hue(img_path: str):
   return hue_hist
 
 def get_hist_sat(img_path: str):
-  img, mask = hsv_preprocess_extract(img_path)
+  img, mask = image_preprocessing(img_path)
   
   if img is None:
     return None
@@ -206,7 +177,7 @@ def get_hist_sat(img_path: str):
   return sat_hist
 
 def get_hist_val(img_path: str):
-  img, mask = hsv_preprocess_extract(img_path)
+  img, mask = image_preprocessing(img_path)
   
   if img is None:
     return None
@@ -259,7 +230,7 @@ def plot_hsv_hist():
 plot_hsv_hist()
 
 def get_hist_hue(img_path: str):
-  img, mask = hsv_preprocess_extract(img_path)
+  img, mask = image_preprocessing(img_path)
   
   if img is None:
     return None
@@ -268,13 +239,14 @@ def get_hist_hue(img_path: str):
   return hue_hist
 
 hue_categories = {
-  "has_pal_warm"            : [0, 1, 2],
-  "has_pal_forest_neutral"  : [3, 4, 5],
-  "has_pal_cool"            : [6, 7, 8],
-  "has_pal_pastel_neutral"  : [9, 10, 11]
+  "has_colors_warm"            : [0, 1, 2],
+  "has_colors_green_neutral"   : [3, 4, 5],
+  "has_colors_cool"            : [6, 7, 8],
+  "has_colors_purple_neutral"  : [9, 10, 11]
 }
 
-HUE_CLASSIFICATION_THRESHOLD = 0.20
+HUE_CLASSIFICATION_THRESHOLD = (0.2)
+VAL_CLASSIFICATION_THRESHOLD = (0.30)
 
 def categorize_hue(hue_history):
   one_hot = {hue_key: np.uint8(0) for hue_key in hue_categories.keys()}
@@ -285,16 +257,52 @@ def categorize_hue(hue_history):
   
   return one_hot
 
-vgdf["hist_hue"].dropna()
+get_ratio = lambda n, total : np.sum(n) / total if total > 0 else 0
+percentage = lambda ratio : np.uint(1) if ratio > VAL_CLASSIFICATION_THRESHOLD else np.uint(0)
+
+def categorize_val_with_sat(img_path: str):
+  image , mask = image_preprocessing(img_path)
+  total_pixels = image.shape[0] * image.shape[1]
+  unmasked_pxiels = total_pixels - np.count_nonzero(mask)
+  
+  grayscale_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+  
+  low_sat = image[:, :, 1] <= SAT_MASK
+  black_mask = (grayscale_image < VAL_MASK) & low_sat
+  white_mask = (grayscale_image > 255 - VAL_MASK) & low_sat
+  grays_mask = (grayscale_image >= VAL_MASK) & (grayscale_image <= 255 - VAL_MASK) & low_sat
+  
+  black_ratio = get_ratio(black_mask, unmasked_pxiels)
+  white_ratio = get_ratio(white_mask, unmasked_pxiels)
+  grays_ratio = get_ratio(grays_mask, unmasked_pxiels)
+  
+  classification = {
+    "has_colors_black" : percentage(black_ratio),
+    "has_colors_white" : percentage(white_ratio),
+    "has_colors_grays" : np.uint(1) if grays_ratio > ( 0.32) else np.uint(0)
+  }
+  return classification
+
+
 
 vgdf["color_categories"] = select_images()["hist_hue"].apply(categorize_hue)
-
+vgdf["grays_categories"] = select_images()["img_png_path"].apply(categorize_val_with_sat)
 
 # Expand into one-hot encoded columns
+
+
+
 color_df = select_images()["color_categories"].apply(pd.Series, dtype=np.uint8)
 vgdf = pd.concat([vgdf, color_df], axis=1).drop(columns=["color_categories"])
 
-print(vgdf["has_pal_warm"].value_counts())
-print(vgdf["has_pal_forest_neutral"].value_counts())
-print(vgdf["has_pal_cool"].value_counts())
-print(vgdf["has_pal_pastel_neutral"].value_counts())
+gray_df = select_images()["grays_categories"].apply(pd.Series, dtype=np.uint8)
+vgdf = pd.concat([vgdf, gray_df], axis=1).drop(columns=["grays_categories"])
+
+print(vgdf["has_colors_warm"].value_counts())
+print(vgdf["has_colors_green_neutral"].value_counts())
+print(vgdf["has_colors_cool"].value_counts())
+print(vgdf["has_colors_purple_neutral"].value_counts())
+
+print(vgdf["has_colors_black"].value_counts())
+print(vgdf["has_colors_white"].value_counts())
+print(vgdf["has_colors_grays"].value_counts())
