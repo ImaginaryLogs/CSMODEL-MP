@@ -337,3 +337,4 @@ def show_color_classification():
 show_color_classification()
 
 print(vgdf[(vgdf["clr_grays"] == 1)][["img", "title", "clr_warm", "clr_green", "clr_cool", "clr_purple", "clr_black", "clr_white"]])
+
