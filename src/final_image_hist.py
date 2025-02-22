@@ -81,25 +81,26 @@ media_path = 'media'
 URL = "https://www.vgchartz.com"
 URL_GAME_ART_LOCATION = '/games/boxart/'
 PREF_IMG_SIZE = (256, 256)
-GEN_BSIZE = 12
+GEN_BSIZE = 64
 HUE_BSIZE = 12 # Fixed, do not touch
 
 DOWNLOAD_ALL = False
 DOWNLOAD_LIMIT = 50
 
-def select_images():
+def select_images():  
   return vgdf if DOWNLOAD_ALL else vgdf.head(DOWNLOAD_LIMIT)
 
 def image_location(img_path_partial: str) -> tuple[str, str, str]:
   file_name = img_path_partial.replace(URL_GAME_ART_LOCATION, '')
   img_jpg = os.path.join(media_path, file_name)
   img_png = img_jpg.replace('.jpg', '.png')
-  
+
   return (file_name, img_jpg, img_png)
+
 
 def image_webscrape(img_path_partial: str) -> str | None:
   """Retrieves the corresponding image from the video game database https://www.vgchartz.com.
-
+  
   Args:
       img_path_partial (str): the partial link to retrieve the image.
   """
@@ -125,7 +126,7 @@ def image_webscrape(img_path_partial: str) -> str | None:
     im.save(img_png, "PNG")
     return img_png
     
-  os.remove(img_jpg)
+  
 
 vgdf['img_png_path'] = select_images()['img_link'].apply(image_webscrape)
 
@@ -136,7 +137,7 @@ Image processing - Data Cleaning
 calc_hist = lambda image, channel, ranges : cv2.calcHist([image], [channel], None, [GEN_BSIZE], ranges) 
 normalize = lambda x: cv2.normalize(x, x, norm_type=cv2.NORM_L1).flatten()
 
-SAT_MASK = 10
+SAT_MASK = 25
 VAL_MASK = 25
 
 HUE_CLASSIFICATION_THRESHOLD = (0.2) # 1/4 = 0.25, lowered to 0.20 to account the possibility of balanced all hues
@@ -158,7 +159,10 @@ def image_preprocessing(img_path):
   #  - Unsaturated Grayish Colors
   #  - Very Close to Black Values
   #  - Very Close to White Values
-  mask = (image[:, :, 1] > SAT_MASK) & (image[:, :, 2] > VAL_MASK) & (image[:, :, 2] < (255 - VAL_MASK))
+  grays_mask = (image[:, :, 1] > SAT_MASK)
+  black_mask = (image[:, :, 2] > VAL_MASK)
+  white_mask = (image[:, :, 2] < (255 - VAL_MASK))
+  mask = grays_mask & black_mask & white_mask 
   return image, mask
 
 def get_hist_hue(img_path: str):
@@ -167,6 +171,7 @@ def get_hist_hue(img_path: str):
     print(f"[ERROR]: No Image Located {img_path}")
     return None
   
+  # Add a mask to distinguish colors vs grays
   hue_hist = normalize(cv2.calcHist([img], [0], mask.astype(np.uint8), [HUE_BSIZE], [0, 180]))
   return hue_hist
 
@@ -176,7 +181,7 @@ def get_hist_sat(img_path: str):
   if img is None:
     return None
   
-  sat_hist = (normalize(cv2.calcHist([img], [1], mask.astype(np.uint8), [GEN_BSIZE], [0, 256])))
+  sat_hist = (normalize(cv2.calcHist([img], [1], None, [GEN_BSIZE], [0, 256])))
   return sat_hist
 
 def get_hist_val(img_path: str):
@@ -185,7 +190,8 @@ def get_hist_val(img_path: str):
   if img is None:
     return None
   
-  val_hist = (normalize(cv2.calcHist([img], [2], mask.astype(np.uint8), [GEN_BSIZE], [0, 256])))
+  
+  val_hist = (normalize(cv2.calcHist([img], [2], None, [GEN_BSIZE], [0, 256])))
   return val_hist
 
 apply_all           = lambda apply, h, s, v : (apply(h), apply(s), apply(v))
@@ -230,63 +236,47 @@ def plot_hsv_hist():
 
   plt.show()
 
-# plot_hsv_hist()
-
-def get_hist_hue(img_path: str):
-  img, mask = image_preprocessing(img_path)
-  
-  if img is None:
-    return None
-  
-  hue_hist = (normalize(cv2.calcHist([img], [0], mask.astype(np.uint8), [HUE_BSIZE], [0, 180])))
-  return hue_hist
+plot_hsv_hist()
 
 hue_categories = {
   "clr_warm"            : [0, 1, 2],
-  "clr_green"   : [3, 4, 5],
+  "clr_green"           : [3, 4, 5],
   "clr_cool"            : [6, 7, 8],
-  "clr_purple"  : [9, 10, 11]
+  "clr_purple"          : [9, 10, 11]
 }
 
 
-def categorize_hue(hue_history):
+def categorize_hue(hist_hue):
   one_hot = {hue_key: False for hue_key in hue_categories.keys()}
-  print(f"hue_hist: {hue_history}")
   for (hue_group, bin_number) in hue_categories.items():
-    if np.sum(hue_history[bin_number]) > HUE_CLASSIFICATION_THRESHOLD:
+    if np.sum(hist_hue[bin_number]) > HUE_CLASSIFICATION_THRESHOLD:
       one_hot[hue_group] = True
   
   return one_hot
 
-get_ratio = lambda n, total : np.sum(n) / total if total > 0 else 0
 percentage = lambda ratio : True if ratio > VAL_CLASSIFICATION_THRESHOLD else False
-percentage_all = lambda ratio1, ratio2, ratio3: True if ratio1 <= VAL_CLASSIFICATION_THRESHOLD and ratio2 <= VAL_CLASSIFICATION_THRESHOLD and ratio3 <= VAL_CLASSIFICATION_THRESHOLD else False
+percentage_all = lambda ratio1, ratio2, ratio3: True if (ratio1 <= VAL_CLASSIFICATION_THRESHOLD and ratio2 <= VAL_CLASSIFICATION_THRESHOLD and ratio3 <= VAL_CLASSIFICATION_THRESHOLD) else False
 
-def categorize_val_with_sat(img_path: str):
-  image , mask = image_preprocessing(img_path)
-  total_pixels = image.shape[0] * image.shape[1]
-  unmasked_pxiels = total_pixels - np.count_nonzero(mask)
+def categorize_val_with_sat(hist_val, hist_sat):
+  bin_width = 256 / GEN_BSIZE  # Bin width for 12-bin histogram
+  low_sat_bins = int(SAT_MASK / bin_width)  # Bins to consider for low saturation
+  low_val_bins = int(VAL_MASK / bin_width)  # Bins to consider for low value (black potential)
+  high_val_bins = int(VAL_MASK / bin_width)  # Bins to consider for high value (white potential)
   
-  low_sat = image[:, :, 1] <= SAT_MASK
+  print(f"B_:{low_val_bins}, W:{high_val_bins}, R{low_sat_bins}")
   
-  grayscale_image = cv2.cvtColor(image, cv2.COLOR_HSV2BGR)
-  grayscale_image = cv2.cvtColor(grayscale_image, cv2.COLOR_BGR2GRAY)
-  
-  
-  black_mask = (grayscale_image < VAL_MASK) 
-  white_mask = (grayscale_image > 255 - VAL_MASK) 
-  grays_mask = (grayscale_image >= VAL_MASK) & (grayscale_image <= 255 - VAL_MASK) & low_sat
-  
-  black_ratio = get_ratio(black_mask, unmasked_pxiels)
-  white_ratio = get_ratio(white_mask, unmasked_pxiels)
-  grays_ratio = get_ratio(grays_mask, unmasked_pxiels)
+  low_sat_ratio = np.sum(hist_sat[:low_sat_bins])  # Low saturation (grayscale potential)
+  black_ratio = np.sum(hist_val[:low_val_bins])  # Low value (black potential)
+  white_ratio = np.sum(hist_val[-high_val_bins:])  # High value (white potential)
 
+  
+  print(f"B:{black_ratio}, W:{white_ratio}, R{low_sat_ratio}")
   
   classification = {
     "clr_black" : percentage(black_ratio),
     "clr_white" : percentage(white_ratio),
-    "clr_grays" : percentage(grays_ratio),
-    "clr_very_sat" : percentage_all(black_ratio, white_ratio, grays_ratio)
+    "clr_grays" : percentage(low_sat_ratio),
+    "clr_very_sat" : percentage_all(black_ratio, white_ratio, low_sat_ratio)
   }
   
   return classification
@@ -294,7 +284,7 @@ def categorize_val_with_sat(img_path: str):
 # categorize_val_with_sat("media/full_call-of-duty-black-ops_5AmericaFront.png")
 
 vgdf["color_categories"] = select_images()["hist_hue"].apply(categorize_hue)
-vgdf["grays_categories"] = select_images()["img_png_path"].apply(categorize_val_with_sat)
+vgdf["grays_categories"] = select_images().apply(lambda row: categorize_val_with_sat(row["hist_val"], row["hist_sat"]), axis=1)
 
 # Expand into one-hot encoded columns
 
@@ -336,4 +326,9 @@ def show_color_classification():
   
 show_color_classification()
 
-print(vgdf[(vgdf["clr_grays"] == 1)][["img", "title", "clr_warm", "clr_green", "clr_cool", "clr_purple", "clr_black", "clr_white"]])
+print(vgdf[(vgdf["img_link"] == '/games/boxart/full_the-elder-scrolls-v-skyrim_554AmericaFront.jpg')][["img", "title", "clr_warm", "clr_green", "clr_cool", "clr_purple", "clr_black", "clr_white", "clr_very_sat"]])
+
+
+
+  
+  
