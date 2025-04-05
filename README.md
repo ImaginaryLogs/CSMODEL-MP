@@ -1,40 +1,43 @@
 <table>
   <tr>
    <td colspan="2" >
-    <h1><strong>The Marketability of
-      
-Video Game Sales in 2024</strong></h1>
+    <h1><strong>The Marketability of Video Game Sales in 2024</strong></h1>
     A Statistical Modelling and Simulation (CSMODEL) Project.
    </td>
   </tr>
   <tr>
    <td>
-     
- Group 4  
- <strong>Ancheta, Liam Micheal Alain Barredo</strong>  
- De La Salle University>  
- <a href="mailto:liam_michael_ancheta@dlsu.edu.ph">liam_michael_ancheta@dlsu.edu.ph</a>  
-       
- <strong>Campo, Roan Cedric Vinarao</strong>  
- De La Salle University  
- <a href="mailto:roan_campo@dlsu.edu.ph">roan_campo@dlsu.edu.ph</a>  
-       
- <strong>Domingo, Angela Sophia De Leon</strong>  
- De La Salle University>  
- <a href="mailto:angela_domingo@dlsu.edu.ph">angela_domingo@dlsu.edu.ph</a> 
- 
- <strong>Sanchez, Chloe Jeanine Esguerra</strong>  
- De La Salle University>  
- <a href="mailto:chloe_sanchez@dlsu.edu.ph">chloe_sanchez@dlsu.edu.ph</a>   
+  Group 4
 
-   </td>
-   <td>
-       <strong>Abstract</strong>
-      <p>
-      <strong>Keywords</strong>
-      <p>
-      Video Game, Business, Data Analytics 
-   </td>
+  <strong>Ancheta, Liam Micheal Alain Barredo</strong>  
+  <p>De La Salle University</p>
+  <a href="mailto:liam_michael_ancheta@dlsu.edu.ph">liam_michael_ancheta@dlsu.edu.ph</a>  
+  <br />       
+
+  <strong>Campo, Roan Cedric Vinarao</strong>  
+  <p>De La Salle University</p>
+  <a href="mailto:roan_campo@dlsu.edu.ph">roan_campo@dlsu.edu.ph</a>  
+  <br />  
+
+  <strong>Domingo, Angela Sophia De Leon</strong>  
+  <p>De La Salle University</p>
+  <a href="mailto:angela_domingo@dlsu.edu.ph">angela_domingo@dlsu.edu.ph</a>
+  <br />    
+
+  <strong>Sanchez, Chloe Jeanine Esguerra</strong>  
+  <p>De La Salle University<p>
+  <a href="mailto:chloe_sanchez@dlsu.edu.ph">chloe_sanchez@dlsu.edu.ph</a>
+  <br />
+
+  </td>
+  <td>
+  <p><strong>Abstract</strong></p>
+
+   <p>The Video Games Industry has been a highly profitable and lucrative industry as of recent years. With a product and industry as reliant on large funding for development as this one, it would be highly valuable to both developers and investors alike to know the several factors that affect Video Game Sales. This project, which utilizes the 2024 Kaggle Video Game Sales Dataset, aims to understand how certain aspects of a video game influence its total sales, including its genre, console, franchise, release date, and even box art. Data cleaning and pre-processing steps such as proper formatting, removing null values, and including franchises per game were performed on the original dataset before creating infographics and forming statistical tests. Several notable discoveries about these attributes were found. Certain genres appear more on specific consoles. While specific genres and specific consoles of a game can significantly influence the total sales, specific combinations of a game's genre and console does not significantly affect its sales. Video Games belonging to a larger franchise generally have much higher sales than standalone games. Lastly, while release month and year impact forecasting sales, it is also highly influenced by factors beyond the scope of the dataset.  
+  </p>
+  <p><strong>Keywords</strong></p>
+  Video Game, Business, Data Analytics, ARIMA, Tukey's HSD
+  </td>
   </tr>
 </table>
 
