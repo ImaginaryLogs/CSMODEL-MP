@@ -54,7 +54,7 @@ A *Modelling and Simulation* (CSMODEL) project; an exploration of the video game
 
 # Overview
 
-This jupyter notebook explores the dataset in sections in accordance to the given topic flow. 
+This jupyter notebook explores the dataset in sections in accordance to the given topic flow. Head over to `/src/` and click on the `CSMODEL_Colab_Notebook.ipynb` file to view it.
 
 ## **Phase 1**
 This set deals with exploring possible avenues of meaningful relationships that have yet to explore in the dataset. This involves Data Collection, Data Preprocessing and Cleaning, Exploratory Data Analysis.
