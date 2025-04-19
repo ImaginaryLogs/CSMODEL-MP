@@ -56,14 +56,16 @@ A *Modelling and Simulation* (CSMODEL) project; an exploration of the video game
 
 This jupyter notebook explores the dataset in sections in accordance to the given topic flow. 
 
-**Phase 1**:  
+## **Phase 1**
 This set deals with exploring possible avenues of meaningful relationships that have yet to explore in the dataset. This involves Data Collection, Data Preprocessing and Cleaning, Exploratory Data Analysis.
 
-**Phase 2**:
+## **Phase 2**:
+
 This set deals with standardizing the organization of found data as to validate and test said relationships using statistical tools. This invovles Experimental Design, Data Modelling, Statistical Testing, Insight and Inference Generation.
 
-Additionally, an additional phase may be added in the future of quenching curiosity.
+Additionally, an additional phase may be added in the future of quenching curiosity - though it is optional.
 
-**Phase 3**:
+## **Phase 3**:
+
 This last section tries to predict the value and direction of the dataset set using machine learning - Data Prediction.
 ‌
