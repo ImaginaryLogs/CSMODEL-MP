@@ -4,7 +4,7 @@
 
 A *Modelling and Simulation* (CSMODEL) project; an exploration of the video game market to gain insight as to what factors into video game sales.
 
-**Authors**: *Ancheta*, *Campo*. *Domingo*, *Sanchez*
+**Authors**: *Ancheta*, *Campo*, *Domingo*, *Sanchez*
 
 <table>
   <tr>
