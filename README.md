@@ -1,4 +1,4 @@
-# CSMODEL MCO - Video Game Sales Analaysis
+# CSMODEL MCO - Video Game Sales Analysis
 
 ![Static Badge](https://img.shields.io/badge/AY2425--T2-CSMODEL-red)
 
